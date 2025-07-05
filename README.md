@@ -1,14 +1,6 @@
 # 🛒 Zepto E-commerce SQL Data Analyst Portfolio Project
 This is a complete, real-world data analyst portfolio project based on an e-commerce inventory dataset scraped from [Zepto](https://www.zeptonow.com/) — one of India’s fastest-growing quick-commerce startups. This project simulates real analyst workflows, from raw data exploration to business-focused data analysis.
 
-This project is perfect for:
-- 📊 Data Analyst aspirants who want to build a strong **Portfolio Project** for interviews and LinkedIn
-- 📚 Anyone learning SQL hands-on
-- 💼 Preparing for interviews in retail, e-commerce, or product analytics
-
-# **🎥 Watch this [YouTube video](https://www.youtube.com/watch?v=x8dfQkKTyP0&list=PLAx-M6Di0SisFJ1rv5M_FRHUlGA5rtUf_&index=2) to implement the full project from scratch:**  
-[![SQL Data Analyst Portfolio Project using Zepto Inventory Dataset](https://github.com/user-attachments/assets/a1895ada-15e4-4f98-aa0d-597a4092c845)](https://www.youtube.com/watch?v=x8dfQkKTyP0&list=PLAx-M6Di0SisFJ1rv5M_FRHUlGA5rtUf_&index=2)
-🔗 *Link to Video:* [Watch on Youtube](https://www.youtube.com/watch?v=x8dfQkKTyP0&list=PLAx-M6Di0SisFJ1rv5M_FRHUlGA5rtUf_&index=2)
 
 ## 📌 Project Overview
 
@@ -52,69 +44,135 @@ Each row represents a unique SKU (Stock Keeping Unit) for a product. Duplicate p
 
 Here’s a step-by-step breakdown of what we do in this project:
 
-### 1. Database & Table Creation
-We start by creating a SQL table with appropriate data types:
-
-```sql
+1.  Database & Table Creation
+We start by creating a SQL Server table with appropriate data types:
 CREATE TABLE zepto (
-  sku_id SERIAL PRIMARY KEY,
+  sku_id INT IDENTITY(1,1) PRIMARY KEY,
   category VARCHAR(120),
   name VARCHAR(150) NOT NULL,
-  mrp NUMERIC(8,2),
-  discountPercent NUMERIC(5,2),
-  availableQuantity INTEGER,
-  discountedSellingPrice NUMERIC(8,2),
-  weightInGms INTEGER,
-  outOfStock BOOLEAN,
-  quantity INTEGER
+  mrp DECIMAL(8,2),
+  discountPercent DECIMAL(5,2),
+  availableQuantity INT,
+  discountedSellingPrice DECIMAL(8,2),
+  weightInGms INT,
+  outOfStock BIT,
+  quantity INT
 );
-```
 
-### 2. Data Import
-- Loaded CSV using pgAdmin's import feature.
+2.  Data Import
+   -Loaded CSV using SQL Server Management Studio’s Import Flat File Wizard
+(Right-click on the database → Tasks → Import Flat File)
 
- - If you're not able to use the import feature, write this code instead:
-```sql
-   \copy zepto(category,name,mrp,discountPercent,availableQuantity,
-            discountedSellingPrice,weightInGms,outOfStock,quantity)
-  FROM 'data/zepto_v2.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', QUOTE '"', ENCODING 'UTF8');
-```
-- Faced encoding issues (UTF-8 error), which were fixed by saving the CSV file using CSV UTF-8 format.
+  - If you're not able to use the GUI import feature, use this code instead:
+BULK INSERT zepto
+FROM 'C:\path\to\your\zepto_v2.csv'
+WITH (
+    FIRSTROW = 2,
+    FIELDTERMINATOR = ',',
+    ROWTERMINATOR = '\n',
+    TEXTQUALIFIER = '"',
+    CODEPAGE = '65001', -- UTF-8 Encoding
+    TABLOCK
+);
 
-### 3. 🔍 Data Exploration
-- Counted the total number of records in the dataset
+   - Faced encoding issues (UTF-8 error), which were fixed by saving the CSV file as CSV UTF-8 (Comma delimited) using Excel or Notepad.
 
-- Viewed a sample of the dataset to understand structure and content
+3.  Data Exploration
+-Total number of records:
+SELECT COUNT(*) AS TotalRecords FROM zepto;
 
-- Checked for null values across all columns
+-Sample data:
+SELECT TOP 10 * FROM zepto;
 
-- Identified distinct product categories available in the dataset
+-Null values per column:
+SELECT 
+  SUM(CASE WHEN category IS NULL THEN 1 ELSE 0 END) AS Null_Category,
+  SUM(CASE WHEN name IS NULL THEN 1 ELSE 0 END) AS Null_Name,
+  SUM(CASE WHEN mrp IS NULL THEN 1 ELSE 0 END) AS Null_MRP,
+  SUM(CASE WHEN discountPercent IS NULL THEN 1 ELSE 0 END) AS Null_Discount,
+  SUM(CASE WHEN discountedSellingPrice IS NULL THEN 1 ELSE 0 END) AS Null_DSP,
+  SUM(CASE WHEN quantity IS NULL THEN 1 ELSE 0 END) AS Null_Quantity
+FROM zepto;
 
-- Compared in-stock vs out-of-stock product counts
+-Distinct product categories:
+SELECT DISTINCT category FROM zepto;
 
-- Detected products present multiple times, representing different SKUs
+-In-stock vs out-of-stock count:
+SELECT 
+  outOfStock, COUNT(*) AS Count
+FROM zepto
+GROUP BY outOfStock;
 
-### 4. 🧹 Data Cleaning
-- Identified and removed rows where MRP or discounted selling price was zero
+-Duplicate product names (multiple SKUs):
+SELECT name, COUNT(*) AS Count
+FROM zepto
+GROUP BY name
+HAVING COUNT(*) > 1;
 
-- Converted mrp and discountedSellingPrice from paise to rupees for consistency and readability
-  
-### 5. 📊 Business Insights
-- Found top 10 best-value products based on discount percentage
 
-- Identified high-MRP products that are currently out of stock
+4.  Data Cleaning
+-Remove rows with MRP or Discounted Price = 0:
+DELETE FROM zepto
+WHERE mrp = 0 OR discountedSellingPrice = 0;
 
-- Estimated potential revenue for each product category
+-Convert from paise to rupees (if applicable):
+UPDATE zepto
+SET 
+  mrp = mrp / 100.0,
+  discountedSellingPrice = discountedSellingPrice / 100.0
+WHERE mrp > 1000;  -- Optional: use a filter if already in ₹
 
-- Filtered expensive products (MRP > ₹500) with minimal discount
+5.  Business Insights
+-Top 10 products with highest discounts:
+SELECT TOP 10 name, mrp, discountedSellingPrice, discountPercent
+FROM zepto
+ORDER BY discountPercent DESC;
 
-- Ranked top 5 categories offering highest average discounts
+-Out-of-stock high-MRP products:
+SELECT name, mrp
+FROM zepto
+WHERE outOfStock = 1 AND mrp > 500;
 
-- Calculated price per gram to identify value-for-money products
+-Estimated potential revenue by category:
+SELECT category, SUM(discountedSellingPrice * quantity) AS PotentialRevenue
+FROM zepto
+GROUP BY category;
 
-- Grouped products based on weight into Low, Medium, and Bulk categories
+-Expensive products with minimal discount:
+SELECT name, mrp, discountPercent
+FROM zepto
+WHERE mrp > 500 AND discountPercent < 5;
 
-- Measured total inventory weight per product category
+-Top 5 categories with highest average discount:
+SELECT TOP 5 category, AVG(discountPercent) AS AvgDiscount
+FROM zepto
+GROUP BY category
+ORDER BY AvgDiscount DESC;
+
+-Price per gram (value for money):
+SELECT name, discountedSellingPrice, weightInGms,
+       (discountedSellingPrice * 1.0 / weightInGms) AS PricePerGram
+FROM zepto
+WHERE weightInGms > 0
+ORDER BY PricePerGram ASC;
+
+-Weight classification (Low < 500g, Medium 500–2000g, Bulk > 2000g):
+SELECT *,
+  CASE 
+    WHEN weightInGms < 500 THEN 'Low'
+    WHEN weightInGms BETWEEN 500 AND 2000 THEN 'Medium'
+    ELSE 'Bulk'
+  END AS WeightCategory
+FROM zepto;
+
+-Total inventory weight per category:
+SELECT category, SUM(weightInGms * quantity) AS TotalWeight
+FROM zepto
+GROUP BY category;
+
+
+
+
 
 
 ## 🛠️ How to Use This Project
@@ -141,29 +199,4 @@ CREATE TABLE zepto (
       - Create a database and run the SQL file
 
       - Import the dataset (convert to UTF-8 if necessary)
-
-4. **Follow along with the YouTube video for full walkthrough. 👨‍💼**
-
-## 📜 License
-
-MIT — feel free to fork, star, and use in your portfolio.
-
-## 👨‍💻 About the Author
-Hey, I’m Amlan Mohanty — a Data Analyst & Content Creator.
-I break down complex data topics into simple, practical content that actually helps you land a job.
-
- ### 🚀 Stay Connected & Join the Data Drool Community
-If you enjoyed this project and want to keep learning and growing as a data analyst, let’s stay in touch! I regularly share content around SQL, data analytics, portfolio projects, job tips, and more.
-
-🎥 YouTube: [Data Drool](https://www.youtube.com/@datadrool)
-- Beginner-friendly tutorials, real-world projects, job and career advice
-
-📺 Instagram: [data.drool](https://www.instagram.com/data.drool/)
-- Quick SQL tips, data memes, and behind-the-scenes content
-
-💼 LinkedIn: [Amlan Mohanty](https://www.linkedin.com/in/amlanmohanty1/)
-- Let’s connect professionally and grow your data career
-
-
-## 💡 Thanks for checking out the project! Your support means a lot — feel free to star ⭐ this repo or share it with someone learning SQL.🚀
 
